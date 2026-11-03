@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cumple · ¿cómo llegamos?</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link rel="stylesheet" href="css/style.css?v=4">
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1 id="titulo">Cumple</h1>
+      <p class="sub"><span id="fecha"></span> · <span id="hora"></span></p>
+      <p class="sub fiesta-dir">📍 <span id="fiesta-nombre"></span> — <span id="fiesta-dir"></span></p>
+    </div>
+    <div class="status" id="status" title="Estado de la conexión"></div>
+  </header>
+
+  <main class="layout">
+    <section class="panel" id="panel">
+
+      <!-- ===== FORMULARIO ===== -->
+      <form id="form" class="card" autocomplete="off">
+        <h2 id="form-titulo">Sumate 🎉</h2>
+        <p class="hint">Contanos de dónde salís así armamos los combos para llegar. Todo lo que no sea el punto de salida es opcional.</p>
+
+        <label>Nombre o seudónimo
+          <input type="text" name="nombre" maxlength="40" placeholder="Cómo te conocen">
+        </label>
+
+        <fieldset class="origen">
+          <legend>¿De dónde salís el viernes 6? <span class="req">*</span></legend>
+          <div class="row">
+            <input type="search" id="buscar" placeholder="Buscá una dirección o barrio…">
+            <button type="button" id="btn-buscar" class="btn ghost">Buscar</button>
+          </div>
+          <ul id="resultados" class="resultados" hidden></ul>
+          <div class="row">
+            <button type="button" id="btn-gps" class="btn ghost">📡 Usar mi ubicación</button>
+            <span class="hint">o tocá el punto en el mapa</span>
+          </div>
+          <p id="origen-label" class="origen-label">Todavía no elegiste un punto.</p>
+          <input type="hidden" name="lat"><input type="hidden" name="lng"><input type="hidden" name="label">
+        </fieldset>
+
+        <fieldset>
+          <legend>¿Tenés auto?</legend>
+          <div class="row radios">
+            <label><input type="radio" name="auto" value="no" checked> No, me busca alguien</label>
+            <label><input type="radio" name="auto" value="si"> Sí, manejo yo</label>
+          </div>
+          <div id="auto-campos" hidden>
+            <label>Lugares libres (sin contarte)
+              <input type="number" name="lugares" min="0" max="8" value="3" inputmode="numeric">
+            </label>
+            <div class="grid3">
+              <label>Vehículo <input type="text" name="vehiculo" placeholder="Gol, Corsa…" maxlength="30"></label>
+              <label>Color <input type="text" name="color" placeholder="Gris" maxlength="20"></label>
+              <label>Patente <input type="text" name="patente" placeholder="AB 123 CD" maxlength="12"></label>
+            </div>
+          </div>
+        </fieldset>
+
+        <div class="grid2">
+          <label>¿A qué hora pensás salir?
+            <input type="time" name="horaSalida">
+          </label>
+          <label>Contacto (WhatsApp / IG)
+            <input type="text" name="contacto" placeholder="opcional" maxlength="40">
+          </label>
+        </div>
+
+        <div class="row end">
+          <button type="button" id="btn-cancelar" class="btn ghost" hidden>Cancelar</button>
+          <button type="submit" class="btn primary">Guardar</button>
+        </div>
+        <p id="form-error" class="error" hidden></p>
+      </form>
+
+      <!-- ===== VISTA PRINCIPAL ===== -->
+      <div id="vista" hidden>
+        <div class="card yo">
+          <div class="row between">
+            <div>
+              <h2 id="yo-nombre"></h2>
+              <p class="hint" id="yo-detalle"></p>
+            </div>
+            <div class="row">
+              <button type="button" id="btn-editar" class="btn ghost small">Editar</button>
+              <button type="button" id="btn-borrar" class="btn ghost small danger">Borrar</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" id="ruta-card">
+          <h3>Tu camino a la fiesta</h3>
+          <p id="ruta-resumen" class="hint">Calculando…</p>
+          <div id="combo"></div>
+          <a id="gmaps" class="btn primary" target="_blank" rel="noopener" hidden>Abrir en Google Maps ↗</a>
+        </div>
+
+        <div class="card" id="sugerencias-card">
+          <h3 id="sug-titulo"></h3>
+          <p class="hint" id="sug-hint"></p>
+          <ul id="sugerencias" class="lista"></ul>
+        </div>
+
+        <div class="card">
+          <h3>Todos los invitados <span id="contador" class="pill"></span></h3>
+          <div class="leyenda">
+            <span><i class="dot auto"></i> Con auto</span>
+            <span><i class="dot sinauto"></i> Sin auto</span>
+            <span><i class="dot fiesta"></i> Fiesta</span>
+          </div>
+          <ul id="lista" class="lista"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="mapa-wrap">
+      <div id="mapa"></div>
+    </section>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="js/config.js?v=2"></script>
+  <script type="module" src="js/app.js?v=3"></script>
+</body>
+</html>
