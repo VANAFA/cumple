@@ -4,7 +4,7 @@
 window.CUMPLE_CONFIG = {
   titulo: "Cumple de Nalli",
   fecha: "Viernes 6 de noviembre",
-  hora: "21:00",
+  hora: "23:00",
 
   // Dónde es la fiesta. Sacá lat/lng de Google Maps (click derecho en el punto → copia las coordenadas).
   fiesta: {
