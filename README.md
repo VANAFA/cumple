@@ -67,8 +67,27 @@ pasando por el invitado (origen → invitado → fiesta). La diferencia en minut
 que `desvioMaxMin` se marca en verde. Cuando el conductor marca a quién lleva, se recalcula el camino
 con las paradas en el orden óptimo (servicio `trip` de OSRM) y se arma el link a Google Maps con ese orden.
 
+## Modo organizador: marcar "viaje resuelto" (punto verde)
+
+Solo el organizador puede marcar a un invitado sin auto como **viaje resuelto**: su punto en el mapa
+y en la lista pasan a verde para todos, y los conductores lo ven como "viaje resuelto" en sus sugerencias.
+
+- Entrá a `https://cumple.nallib.ar/?admin`: aparece la tarjeta "Modo organizador" con email y contraseña
+  (cuenta de Firebase Auth del proyecto `nallibar`, la misma que usa el chat de nallib.ar). Si no tenés
+  cuenta, "Crear cuenta" la crea y manda un mail de verificación; después tocá "Ya verifiqué el mail".
+- El email tiene que ser el de `adminEmail` en `js/config.js`, y **el mismo** que está en
+  `firestore.rules` del repo `portfolio` (`isOrganizadorCumple`). Las reglas solo dejan cambiar el campo
+  `resuelto` a esa cuenta con el mail verificado; cualquier otro escribe el documento conservando el valor.
+- La sesión queda guardada en ese navegador (IndexedDB) y la página vuelve a cargar el modo organizador
+  sola en las próximas visitas, sin `?admin`. "Salir" lo apaga.
+- En la lista "Todos los invitados" cada invitado sin auto tiene el checkbox **resuelto**.
+- Hasta desplegar las reglas con `resuelto` (`firebase deploy --only firestore:rules` desde `portfolio`),
+  marcar da "permission denied" y la página lo avisa debajo de la lista.
+- Con `?local=1&admin` el modo organizador se activa sin login (modo prueba).
+
 ## Datos que se guardan por invitado
 
 `nombre, origen {lat, lng, label}, auto, lugares, vehiculo, color, patente, horaSalida, contacto, pasajeros[]`.
+Opcional `resuelto` (bool): lo pone el organizador; la página lo conserva al editar.
 Cada uno puede editar o borrar solo su propia entrada (se recuerda en el navegador). Como organizador podés
 borrar/editar cualquiera desde la consola de Firebase (Firestore → cumple_invitados).

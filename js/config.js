@@ -21,6 +21,12 @@ window.CUMPLE_CONFIG = {
   // cuenta como "de pasada" para un conductor.
   desvioMaxMin: 15,
 
+  // Organizador: la única cuenta que puede marcar a un invitado sin auto como "viaje resuelto"
+  // (punto verde). Entrás una vez con ?admin en la URL (email + contraseña de Firebase, como el
+  // chat de nallib.ar) y la sesión queda guardada en ese navegador. Tiene que coincidir con la
+  // constante de firestore.rules (repo portfolio, función isOrganizadorCumple).
+  adminEmail: "nallibfadel@gmail.com",
+
   // Backend compartido: Firestore del mismo proyecto Firebase que nallib.ar.
   // Esta config es un identificador público, no un secreto; lo que protege son las
   // reglas (firestore.rules en el repo portfolio, colección "cumple_invitados").

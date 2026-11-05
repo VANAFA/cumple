@@ -24,18 +24,20 @@ class LocalStore {
   async remove(id) { const d = this.read(); delete d[id]; this.write(d); }
 }
 
+const FB_VERSION = "10.14.1";
 class FirestoreStore {
   // Mismo proyecto Firebase que nallib.ar (Firestore, plan Spark). La config es un
   // identificador público; lo que protege son las reglas (firestore.rules del repo portfolio).
   static async create(cfg, coleccion) {
-    const v = "10.14.1";
+    const v = FB_VERSION;
     const [{ initializeApp }, fs] = await Promise.all([
       import(`https://www.gstatic.com/firebasejs/${v}/firebase-app.js`),
       import(`https://www.gstatic.com/firebasejs/${v}/firebase-firestore.js`),
     ]);
     const s = new FirestoreStore();
     s.fs = fs;
-    s.db = fs.getFirestore(initializeApp(cfg));
+    s.app = initializeApp(cfg);
+    s.db = fs.getFirestore(s.app);
     s.col = coleccion;
     return s;
   }
@@ -145,6 +147,9 @@ let origenForm = null;           // {lat,lng,label}
 let idsVistos = "";              // para hacer fit del mapa cuando cambia la gente
 let claveRuta = "";              // para no recalcular rutas si no cambió nada
 let borrarArmado = false;
+let adminUser = null;            // usuario Firebase del organizador (verificado y con el email de config), o {email} en modo local
+
+const resuelto = (g) => !g.auto && g.resuelto === true;   // el organizador marcó que ya tiene cómo llegar
 
 const nombreDe = (g) => g.nombre || "Invitado " + g.id.slice(-4).toUpperCase();
 const pasajerosDe = (g) => (Array.isArray(g.pasajeros) ? g.pasajeros : Object.values(g.pasajeros || {})).filter((id) => invitados[id]);
@@ -231,6 +236,7 @@ form.addEventListener("submit", async (e) => {
     pasajeros: auto && previo ? pasajerosDe(previo) : [],
     creado: previo ? previo.creado : Date.now(),
     actualizado: Date.now(),
+    ...(previo && "resuelto" in previo ? { resuelto: previo.resuelto === true } : {}),
   };
   try {
     await store.save(g);
@@ -271,6 +277,7 @@ function render() {
   form.hidden = !verForm; $("#vista").hidden = verForm;
   $("#form-titulo").textContent = modoForm === "editar" ? "Editar mis datos" : "Sumate 🎉";
   $("#btn-cancelar").hidden = modoForm !== "editar";
+  $("#lista-card").hidden = verForm && !adminUser;
   renderMarcadores(yo);
   renderLista(yo);
   if (yo && !verForm) { renderYo(yo); renderRutas(yo); }
@@ -281,11 +288,12 @@ function renderMarcadores(yo) {
   capaInvitados.clearLayers();
   const todos = Object.values(invitados);
   for (const g of todos) {
-    const clase = (g.auto ? "auto" : "sinauto") + (yo && g.id === yo.id ? " yo" : "");
+    const clase = (g.auto ? "auto" : resuelto(g) ? "resuelto" : "sinauto") + (yo && g.id === yo.id ? " yo" : "");
     const c = !g.auto && conductorDe(g.id);
-    L.marker([g.origen.lat, g.origen.lng], { icon: icono(clase, g.auto ? "🚗" : "") }).addTo(capaInvitados).bindPopup(
+    L.marker([g.origen.lat, g.origen.lng], { icon: icono(clase, g.auto ? "🚗" : resuelto(g) ? "✓" : "") }).addTo(capaInvitados).bindPopup(
       `<b>${esc(nombreDe(g))}</b>${yo && g.id === yo.id ? " (vos)" : ""}<br>${esc(g.origen.label)}` +
-      (g.auto ? `<br>🚗 ${esc(descAuto(g)) || "Auto"} · ${libres(g)} lugar${libres(g) === 1 ? "" : "es"} libre${libres(g) === 1 ? "" : "s"}` : c ? `<br>Lo busca ${esc(nombreDe(c))}` : "<br>Sin auto") +
+      (g.auto ? `<br>🚗 ${esc(descAuto(g)) || "Auto"} · ${libres(g)} lugar${libres(g) === 1 ? "" : "es"} libre${libres(g) === 1 ? "" : "s"}`
+        : resuelto(g) ? `<br>✅ Viaje resuelto${c ? " · lo busca " + esc(nombreDe(c)) : ""}` : c ? `<br>Lo busca ${esc(nombreDe(c))}` : "<br>Sin auto") +
       (g.horaSalida ? `<br>Sale ${esc(g.horaSalida)}` : "") + (g.contacto ? `<br>${esc(g.contacto)}` : ""));
   }
   const ids = todos.map((g) => g.id).sort().join(",");
@@ -303,11 +311,23 @@ function renderLista(yo) {
     const c = !g.auto && conductorDe(g.id);
     const sub = g.auto
       ? `${descAuto(g) || "Auto"} · ${libres(g)} libre${libres(g) === 1 ? "" : "s"}${pasajerosDe(g).length ? " · lleva a " + pasajerosDe(g).map((id) => nombreDe(invitados[id])).join(", ") : ""}`
-      : c ? `Lo busca ${nombreDe(c)}` : "Busca quien lo lleve";
-    return `<li class="${yo && g.id === yo.id ? "yo" : ""}"><i class="dot ${g.auto ? "auto" : "sinauto"}"></i>
+      : resuelto(g) ? `✅ Viaje resuelto${c ? " · lo busca " + nombreDe(c) : ""}` : c ? `Lo busca ${nombreDe(c)}` : "Busca quien lo lleve";
+    const chk = adminUser && !g.auto ? `<label class="chk"><input type="checkbox" class="resuelto" ${g.resuelto === true ? "checked" : ""}> resuelto</label>` : "";
+    return `<li class="${yo && g.id === yo.id ? "yo" : ""}" data-id="${g.id}"><i class="dot ${g.auto ? "auto" : resuelto(g) ? "resuelto" : "sinauto"}"></i>
       <div class="info">${esc(nombreDe(g))}${yo && g.id === yo.id ? " (vos)" : ""}${g.horaSalida ? ` <span class="tag">sale ${esc(g.horaSalida)}</span>` : ""}
-      <small>${esc(g.origen.label)} — ${esc(sub)}</small></div></li>`;
+      <small>${esc(g.origen.label)} — ${esc(sub)}</small></div>${chk}</li>`;
   }).join("") || "<li class='hint'>Todavía no hay nadie. ¡Sos el primero!</li>";
+  $("#lista").querySelectorAll("input.resuelto").forEach((cb) => cb.addEventListener("change", async () => {
+    const id = cb.closest("li").dataset.id;
+    cb.disabled = true; $("#lista-error").hidden = true;
+    try { await store.update(id, { resuelto: cb.checked, actualizado: Date.now() }); }
+    catch (err) {
+      cb.checked = !cb.checked; cb.disabled = false;
+      const el = $("#lista-error"); el.hidden = false;
+      el.textContent = "No pude marcar a " + nombreDe(invitados[id] || { id }) + ": " + err.message
+        + (/permission|insufficient/i.test(err.message) ? " (¿las reglas de Firestore con `resuelto` ya están desplegadas y entraste con la cuenta del organizador?)" : "");
+    }
+  }));
 }
 
 function renderYo(yo) {
@@ -333,7 +353,7 @@ async function renderRutas(yo) {
     if (claveRuta !== clave) return;
     L.geoJSON(v.geo, { style: { color: "#7c5cff", weight: 5, opacity: 0.85 } }).addTo(capaRuta);
     const paradasOrdenadas = v.orden.slice(1, -1).map((p) => invitados[p.id]);
-    $("#ruta-resumen").innerHTML = (conductor && !yo.auto ? `Te busca <b>${esc(nombreDe(conductor))}</b> (${esc(descAuto(conductor)) || "auto"}${conductor.horaSalida ? ", sale " + esc(conductor.horaSalida) : ""}${conductor.contacto ? ", " + esc(conductor.contacto) : ""}). Su camino: ` : yo.auto ? "" : "Nadie te busca todavía. Si fueras en auto, serían ")
+    $("#ruta-resumen").innerHTML = (conductor && !yo.auto ? `Te busca <b>${esc(nombreDe(conductor))}</b> (${esc(descAuto(conductor)) || "auto"}${conductor.horaSalida ? ", sale " + esc(conductor.horaSalida) : ""}${conductor.contacto ? ", " + esc(conductor.contacto) : ""}). Su camino: ` : yo.auto ? "" : resuelto(yo) ? "✅ Tu viaje está resuelto (lo marcó el organizador). En auto directo serían " : "Nadie te busca todavía. Si fueras en auto, serían ")
       + `<b>${fmtMin(v.duracion)}</b> · ${fmtKm(v.distancia)}`;
     $("#combo").innerHTML = [base, ...paradasOrdenadas].map((p, i) => `<div class="combo-item"><span>${i + 1}. ${esc(nombreDe(p))}${p.id === yo.id ? " (vos)" : ""}</span><span class="n">${esc(p.origen.label)}</span></div>`).join("")
       + `<div class="combo-item"><span>${paradasOrdenadas.length + 2}. 🎉 ${esc(CFG.fiesta.nombre)}</span><span class="n">${esc(CFG.fiesta.direccion)}</span></div>`;
@@ -354,10 +374,11 @@ async function renderRutas(yo) {
     ul.innerHTML = res.map(({ g, d }) => {
       const mio = pasajerosDe(yo).includes(g.id);
       const otro = !mio && conductorDe(g.id);
+      const listo = !mio && !otro && resuelto(g);
       const lleno = !mio && libres(yo) <= 0;
       const cls = !d ? "" : d.extraMin <= CFG.desvioMaxMin ? "ok" : "meh";
-      return `<li class="${otro ? "taken" : ""}" data-id="${g.id}"><input type="checkbox" ${mio ? "checked" : ""} ${otro || lleno ? "disabled" : ""}>
-        <div class="info">${esc(nombreDe(g))} ${otro ? `<span class="tag">lo busca ${esc(nombreDe(otro))}</span>` : mio ? `<span class="tag ok">en tu combo</span>` : lleno ? `<span class="tag">sin lugar</span>` : ""}
+      return `<li class="${otro || listo ? "taken" : ""}" data-id="${g.id}"><input type="checkbox" ${mio ? "checked" : ""} ${otro || listo || lleno ? "disabled" : ""}>
+        <div class="info">${esc(nombreDe(g))} ${otro ? `<span class="tag">lo busca ${esc(nombreDe(otro))}</span>` : mio ? `<span class="tag ok">en tu combo</span>` : listo ? `<span class="tag ok">viaje resuelto</span>` : lleno ? `<span class="tag">sin lugar</span>` : ""}
         <small>${esc(g.origen.label)}${g.horaSalida ? " · sale " + esc(g.horaSalida) : ""}${g.contacto ? " · " + esc(g.contacto) : ""}</small></div>
         <span class="extra ${cls}">${d ? `+${Math.round(d.extraMin)} min · +${d.extraKm.toFixed(1)} km` : "sin dato"}</span></li>`;
     }).join("");
@@ -390,6 +411,60 @@ async function renderRutas(yo) {
 }
 
 // =====================================================================
+//  Modo organizador (?admin): Firebase Auth por email/contraseña, como el chat de nallib.ar.
+//  Las reglas de Firestore solo dejan cambiar `resuelto` a la cuenta verificada de CFG.adminEmail.
+//  La sesión queda en el navegador (IndexedDB); el flag en localStorage hace que se cargue Auth
+//  en las próximas visitas sin volver a poner ?admin.
+// =====================================================================
+const ADMIN_FLAG = "cumple-admin";
+function adminMsg(msg, esError) { const el = $("#admin-msg"); el.textContent = msg || ""; el.style.color = esError ? "var(--danger)" : ""; }
+async function iniciarAdmin() {
+  $("#admin-card").hidden = false;
+  if (!(store instanceof FirestoreStore)) {
+    // modo prueba (?local=1): sin login, directo como organizador
+    adminUser = { email: "modo local" };
+    $("#admin-form").hidden = true; $("#admin-on").hidden = false; $("#admin-email").textContent = "modo local";
+    $("#admin-salir").onclick = () => { adminUser = null; localStorage.removeItem(ADMIN_FLAG); $("#admin-card").hidden = true; render(); };
+    render();
+    return;
+  }
+  const A = await import(`https://www.gstatic.com/firebasejs/${FB_VERSION}/firebase-auth.js`);
+  const auth = A.getAuth(store.app);
+  const fa = $("#admin-form");
+  const estado = (u) => {
+    const esAdmin = !!u && u.emailVerified && (u.email || "").toLowerCase() === String(CFG.adminEmail || "").toLowerCase();
+    adminUser = esAdmin ? u : null;
+    fa.hidden = !!u; $("#admin-on").hidden = !u;
+    $("#admin-verificar").hidden = $("#admin-reenviar").hidden = !(u && !u.emailVerified);
+    if (u) {
+      $("#admin-email").textContent = u.email || "";
+      if (!u.emailVerified) adminMsg("Falta verificar el mail: abrí el link que te mandé y tocá «Ya verifiqué el mail».", true);
+      else if (!esAdmin) adminMsg("Esta cuenta no es la del organizador (" + CFG.adminEmail + ").", true);
+      else { adminMsg(""); localStorage.setItem(ADMIN_FLAG, "1"); }
+    }
+    render();
+  };
+  A.onAuthStateChanged(auth, estado);
+  fa.addEventListener("submit", async (e) => {
+    e.preventDefault(); adminMsg("Entrando…");
+    try { await A.signInWithEmailAndPassword(auth, fa.email.value.trim(), fa.pass.value); }
+    catch (err) { adminMsg("No pude entrar: " + err.code, true); }
+  });
+  $("#admin-crear").onclick = async () => {
+    if (!fa.email.value.trim() || fa.pass.value.length < 6) return adminMsg("Poné el email y una contraseña de al menos 6 caracteres.", true);
+    adminMsg("Creando cuenta…");
+    try {
+      const cred = await A.createUserWithEmailAndPassword(auth, fa.email.value.trim(), fa.pass.value);
+      await A.sendEmailVerification(cred.user);
+      adminMsg("Cuenta creada. Te mandé un mail de verificación: abrí el link y después tocá «Ya verifiqué el mail».");
+    } catch (err) { adminMsg("No pude crear la cuenta: " + err.code, true); }
+  };
+  $("#admin-reenviar").onclick = async () => { try { await A.sendEmailVerification(auth.currentUser); adminMsg("Mail reenviado."); } catch (err) { adminMsg(err.code, true); } };
+  $("#admin-verificar").onclick = async () => { await auth.currentUser.reload(); await auth.currentUser.getIdToken(true); estado(auth.currentUser); };
+  $("#admin-salir").onclick = async () => { localStorage.removeItem(ADMIN_FLAG); adminMsg(""); await A.signOut(auth); };
+}
+
+// =====================================================================
 //  Arranque
 // =====================================================================
 (async function init() {
@@ -407,4 +482,5 @@ async function renderRutas(yo) {
     }
   } catch (err) { setStatus("err", "No pude conectar: " + err.message); store = new LocalStore(); }
   store.subscribe((data) => { invitados = data || {}; render(); });
+  if (new URLSearchParams(location.search).has("admin") || localStorage.getItem(ADMIN_FLAG)) iniciarAdmin().catch((err) => adminMsg("No pude cargar el modo organizador: " + err.message, true));
 })();

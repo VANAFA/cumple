@@ -79,10 +79,16 @@ input:focus { outline: 2px solid var(--primary); border-color: transparent; }
 .lista li.taken { opacity: .55; }
 .lista li.yo .info { font-weight: 600; }
 .lista input[type=checkbox] { width: 1.1rem; height: 1.1rem; }
+.lista .chk { display: inline-flex; align-items: center; gap: .3rem; margin: 0; font-size: .8rem; color: var(--muted); white-space: nowrap; cursor: pointer; }
+.lista .chk input { width: 1rem; height: 1rem; }
+#admin-card { border-color: var(--ok); }
+#admin-card input[type=email], #admin-card input[type=password] { display: block; width: 100%; margin-top: .25rem; padding: .55rem .7rem; border-radius: 9px;
+  border: 1px solid var(--line); background: #0f1115; color: var(--text); font-size: 1rem; }
 
 .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin-right: .3rem; flex: none; }
 .dot.auto { background: var(--auto); }
 .dot.sinauto { background: var(--sinauto); }
+.dot.resuelto { background: var(--ok); }
 .dot.fiesta { background: url(../images/cabeza.png?v=2) center/cover; width: 16px; height: 16px; }
 .leyenda { display: flex; gap: 1rem; font-size: .85rem; color: var(--muted); margin-bottom: .5rem; flex-wrap: wrap; }
 .pill { font-size: .75rem; background: #22262f; border-radius: 999px; padding: .1rem .5rem; color: var(--muted); font-weight: 400; }
@@ -96,6 +102,7 @@ input:focus { outline: 2px solid var(--primary); border-color: transparent; }
   display: flex; align-items: center; justify-content: center; font-size: 13px; }
 .mk.auto { background: var(--auto); }
 .mk.sinauto { background: var(--sinauto); }
+.mk.resuelto { background: var(--ok); }
 .mk.fiesta { background: var(--fiesta); width: 34px; height: 34px; font-size: 18px; }
 .mk.yo { outline: 3px solid var(--primary); outline-offset: 1px; }
 .mk.temp { background: var(--primary); }
